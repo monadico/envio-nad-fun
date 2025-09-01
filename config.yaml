@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=./node_modules/envio/evm.schema.json
+name: nadfun-analytics
+networks:
+  - id: 10143
+    rpc: https://testnet-rpc.monad.xyz
+    start_block: 0
+    contracts:
+      - name: BondingCurve
+        address: "0x52D34d8536350Cd997bCBD0b9E9d722452f341F5"
+        abi_file_path: ./ABIs/IBondingCurve.json
+        handler: ./src/BondingCurve.ts
+        events:
+          - event: CurveCreate(address indexed creator, address indexed token, address indexed pool, string name, string symbol, string tokenURI, uint256 virtualMon, uint256 virtualToken, uint256 targetTokenAmount)
+          - event: CurveBuy(address indexed sender, address indexed token, uint256 amountIn, uint256 amountOut)
+            field_selection:
+              transaction_fields:
+                - hash
+          - event: CurveSell(address indexed sender, address indexed token, uint256 amountIn, uint256 amountOut)
+            field_selection:
+              transaction_fields:
+                - hash
+
+      - name: DexRouter
+        address: "0x4FBDC27FAE5f99E7B09590bEc8Bf20481FCf9551"
+        abi_file_path: ./ABIs/IDexRouter.json
+        handler: ./src/DexRouter.ts
+        events:
+          - event: DexRouterBuy(address indexed sender, address indexed token, uint256 amountIn, uint256 amountOut)
+            field_selection:
+              transaction_fields:
+                - hash
+          - event: DexRouterSell(address indexed sender, address indexed token, uint256 amountIn, uint256 amountOut)
+            field_selection:
+              transaction_fields:
+                - hash
+
+      - name: TokenTemplate
+        abi_file_path: ./ABIs/IToken.json
+        handler: ./src/TokenTemplate.ts
+        events:
+          - event: Transfer(address indexed from, address indexed to, uint256 value)
+            field_selection:
+              transaction_fields:
+                - hash

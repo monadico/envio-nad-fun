@@ -1,0 +1,47 @@
+# Corresponds to the 'wallets' table
+type Wallet @entity {
+  id: String! # Unique wallet address
+  address: String!
+  transfersFrom: [Transfer!]! @derivedFrom(field: "from")
+  transfersTo: [Transfer!]! @derivedFrom(field: "to")
+  trades: [Trade!]! @derivedFrom(field: "trader")
+}
+
+# Corresponds to the 'tokens' table
+type Token @entity {
+  id: String! # Unique token address
+  address: String!
+  name: String
+  symbol: String
+  creator: Wallet
+  totalSupply: BigInt
+  creationTimestamp: BigInt
+  transfers: [Transfer!]! @derivedFrom(field: "token")
+  trades: [Trade!]! @derivedFrom(field: "token")
+}
+
+# Corresponds to the 'transfers' table
+type Transfer @entity {
+  id: String! # Transaction hash + log index
+  token: Token!
+  from: Wallet!
+  to: Wallet!
+  amount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
+
+# Corresponds to the 'trades' table
+type Trade @entity {
+  id: String! # Transaction hash + log index
+  token: Token!
+  trader: Wallet!
+  tradeType: String! # "BUY" or "SELL"
+  source: String! # "Bonding Curve" or "DEXRouter"
+  tokenAmount: BigInt!
+  monAmount: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  txHash: String!
+}
