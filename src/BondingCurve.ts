@@ -8,21 +8,7 @@ import {
   Trade,
 } from "../generated/src/Types.gen";
 
-// Helper function to get or create a wallet
-async function getOrCreateWallet(
-  address: string,
-  context: any
-): Promise<Wallet> {
-  let wallet = await context.Wallet.get(address);
-  if (wallet === undefined) {
-    wallet = {
-      id: address,
-      address: address,
-    };
-    context.Wallet.set(wallet);
-  }
-  return wallet;
-}
+import { getOrCreateWallet } from "./utils";
 
 // ---- Contract Registration ----
 BondingCurve.CurveCreate.contractRegister(({ event, context }) => {

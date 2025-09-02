@@ -7,21 +7,7 @@ import {
   Transfer,
 } from "../generated/src/Types.gen";
 
-// Helper function to get or create a wallet
-async function getOrCreateWallet(
-  address: string,
-  context: any
-): Promise<Wallet> {
-  let wallet = await context.Wallet.get(address);
-  if (wallet === undefined) {
-    wallet = {
-      id: address,
-      address: address,
-    };
-    context.Wallet.set(wallet);
-  }
-  return wallet;
-}
+import { updateTokenHolding, getOrCreateWallet } from "./utils";
 
 TokenTemplate.Transfer.handler(async ({ event, context }) => {
   const from = await getOrCreateWallet(event.params.from, context);
@@ -38,4 +24,29 @@ TokenTemplate.Transfer.handler(async ({ event, context }) => {
     txHash: event.transaction.hash,
   };
   context.Transfer.set(transfer);
+
+  // Update holdings
+  const timestamp = BigInt(event.block.timestamp);
+  
+  // Decrease sender's balance (unless it's minting from zero address)
+  if (event.params.from !== "0x0000000000000000000000000000000000000000") {
+    await updateTokenHolding(
+      event.params.from,
+      event.srcAddress,
+      -event.params.value, // Negative for outgoing
+      timestamp,
+      context
+    );
+  }
+  
+  // Increase receiver's balance (unless it's burning to zero address)
+  if (event.params.to !== "0x0000000000000000000000000000000000000000") {
+    await updateTokenHolding(
+      event.params.to,
+      event.srcAddress,
+      event.params.value, // Positive for incoming
+      timestamp,
+      context
+    );
+  }
 });

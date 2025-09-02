@@ -5,6 +5,7 @@ type Wallet @entity {
   transfersFrom: [Transfer!]! @derivedFrom(field: "from")
   transfersTo: [Transfer!]! @derivedFrom(field: "to")
   trades: [Trade!]! @derivedFrom(field: "trader")
+  holdings: [TokenHolding!]! @derivedFrom(field: "wallet")
 }
 
 # Corresponds to the 'tokens' table
@@ -18,6 +19,7 @@ type Token @entity {
   creationTimestamp: BigInt
   transfers: [Transfer!]! @derivedFrom(field: "token")
   trades: [Trade!]! @derivedFrom(field: "token")
+  holdings: [TokenHolding!]! @derivedFrom(field: "token")
 }
 
 # Corresponds to the 'transfers' table
@@ -44,4 +46,15 @@ type Trade @entity {
   blockNumber: BigInt!
   timestamp: BigInt!
   txHash: String!
+}
+
+# Corresponds to the 'token_holdings' table
+type TokenHolding @entity {
+  id: String! # wallet_id + "-" + token_id
+  wallet: Wallet!
+  token: Token!
+  previousBalance: BigInt! # Balance before this transaction
+  currentBalance: BigInt!  # Balance after this transaction (latest)
+  lastUpdated: BigInt!
+  firstAcquired: BigInt!   # When this wallet first got this token
 }

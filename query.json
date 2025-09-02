@@ -1,0 +1,1 @@
+{"query": "query GetRecentTrades { Trade(where: { token_id: { _eq: \"0xE9B80F7fC1404ACd315a7b06a0b0C729bFa150Bd\" } }, order_by: { timestamp: desc }) { id trader_id tradeType tokenAmount monAmount timestamp txHash source } }"}
