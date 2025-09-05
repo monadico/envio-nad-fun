@@ -40,7 +40,7 @@ type Trade @entity {
   token: Token!
   trader: Wallet!
   tradeType: String! # "BUY" or "SELL"
-  source: String! # "Bonding Curve" or "DEXRouter"
+  source: String! # "Bonding Curve", "DEXRouter", or "Monorail"
   tokenAmount: BigInt!
   monAmount: BigInt!
   blockNumber: BigInt!

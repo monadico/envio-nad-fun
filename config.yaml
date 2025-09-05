@@ -34,6 +34,16 @@ networks:
               transaction_fields:
                 - hash
 
+      - name: MonorailAggregator
+        address: "0x525B929fCd6a64AfF834f4eeCc6E860486cED700"
+        abi_file_path: ./ABIs/monorail.json
+        handler: ./src/MonorailAggregator.ts
+        events:
+          - event: Aggregated(address indexed sender, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut, uint256 protocolFeeAmount, uint256 referrerFeeAmount, uint64 referrer, uint64 quote)
+            field_selection:
+              transaction_fields:
+                - hash
+
       - name: TokenTemplate
         abi_file_path: ./ABIs/IToken.json
         handler: ./src/TokenTemplate.ts
