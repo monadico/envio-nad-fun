@@ -43,6 +43,7 @@ BondingCurve.CurveCreate.handler(async ({ event, context }) => {
     name: event.params.name,
     symbol: event.params.symbol,
     creator_id: creator.id,
+    poolAddress: event.params.pool,
     totalSupply: 0n,
     creationTimestamp: BigInt(event.block.timestamp),
   };

@@ -15,6 +15,7 @@ type Token @entity {
   name: String
   symbol: String
   creator: Wallet
+  poolAddress: String # Uniswap pool address from CurveCreate
   totalSupply: BigInt
   creationTimestamp: BigInt
   transfers: [Transfer!]! @derivedFrom(field: "token")
@@ -40,7 +41,7 @@ type Trade @entity {
   token: Token!
   trader: Wallet!
   tradeType: String! # "BUY" or "SELL"
-  source: String! # "Bonding Curve", "DEXRouter", or "Monorail"
+  source: String! # "Bonding Curve", "DEXRouter", "Monorail", or "Uniswap"
   tokenAmount: BigInt!
   monAmount: BigInt!
   blockNumber: BigInt!

@@ -52,3 +52,12 @@ networks:
             field_selection:
               transaction_fields:
                 - hash
+
+      - name: UniswapV3PoolTemplate
+        abi_file_path: ./ABIs/uniswap-v3-pool.json
+        handler: ./src/UniswapV3PoolTemplate.ts
+        events:
+          - event: Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)
+            field_selection:
+              transaction_fields:
+                - hash

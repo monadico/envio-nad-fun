@@ -9,10 +9,13 @@ import {
 } from "../generated/src/Types.gen";
 
 import { getOrCreateWallet } from "./utils";
+import { registerPoolToken } from "./UniswapV3PoolTemplate";
 
 // ---- Contract Registration ----
 BondingCurve.CurveCreate.contractRegister(({ event, context }) => {
   context.addTokenTemplate(event.params.token);
+  // Also register the pool address for Swap event tracking
+  context.addUniswapV3PoolTemplate(event.params.pool);
 });
 
 // ---- Event Handlers ----
@@ -26,10 +29,14 @@ BondingCurve.CurveCreate.handler(async ({ event, context }) => {
     name: event.params.name,
     symbol: event.params.symbol,
     creator_id: creator.id,
+    poolAddress: event.params.pool,
     totalSupply: 0n,
     creationTimestamp: BigInt(event.block.timestamp),
   };
   context.Token.set(token);
+  
+  // Register the pool-token mapping for Uniswap tracking
+  registerPoolToken(event.params.pool, event.params.token);
 });
 
 async function handleTrade(
