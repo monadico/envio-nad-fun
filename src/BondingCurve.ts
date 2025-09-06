@@ -45,6 +45,13 @@ async function handleTrade(
   tradeType: "BUY" | "SELL",
   source: "Bonding Curve" | "DEXRouter"
 ) {
+  // Check if token exists in our Token table first
+  const token = await context.Token.get(event.params.token);
+  if (!token) {
+    // Skip trades for tokens we don't track
+    return;
+  }
+
   const trader = await getOrCreateWallet(event.params.sender, context);
 
   const trade: Trade = {

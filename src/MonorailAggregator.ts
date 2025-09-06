@@ -15,6 +15,13 @@ async function handleMonorailTrade(
   tokenAddress: string,
   tradeType: "BUY" | "SELL"
 ) {
+  // Check if token exists in our Token table first
+  const token = await context.Token.get(tokenAddress);
+  if (!token) {
+    // Skip trades for tokens we don't track
+    return;
+  }
+
   const trader = await getOrCreateWallet(event.params.sender, context);
 
   const trade: Trade = {

@@ -12,7 +12,7 @@ from typing import Dict, List, Any
 from datetime import datetime, timedelta
 
 # Envio GraphQL endpoint
-ENVIO_ENDPOINT = "http://localhost:8080/v1/graphql"
+ENVIO_ENDPOINT = "https://indexer.hyperindex.xyz/2fe958e/v1/graphql"
 
 def query_graphql(query: str, variables: Dict[str, Any] = None) -> Dict[str, Any]:
     """Execute a GraphQL query against Envio endpoint"""
@@ -53,21 +53,24 @@ def get_token_info(token_address: str) -> Dict[str, Any]:
     return tokens[0]
 
 def get_token_holders(token_address: str, min_balance: int = 0) -> List[Dict[str, Any]]:
-    """Get all current holders of a specific token"""
+    """Get all current holders of a specific token by analyzing Transfer events"""
+    # First get all transfers for this token
     query = """
-    query GetTokenHolders($tokenAddress: String!) {
-        TokenHolding(
+    query GetTokenTransfers($tokenAddress: String!) {
+        Transfer(
             where: {
-                token: {address: {_eq: $tokenAddress}},
-                currentBalance: {_gt: "0"}
+                token: {address: {_eq: $tokenAddress}}
             }
+            order_by: {timestamp: asc}
         ) {
-            wallet {
+            from {
                 address
             }
-            currentBalance
-            lastUpdated
-            firstAcquired
+            to {
+                address
+            }
+            amount
+            timestamp
         }
     }
     """
@@ -77,7 +80,46 @@ def get_token_holders(token_address: str, min_balance: int = 0) -> List[Dict[str
     }
     
     result = query_graphql(query, variables)
-    return result.get("TokenHolding", [])
+    transfers = result.get("Transfer", [])
+    
+    # Calculate current balances from transfers
+    balances = {}
+    first_acquired = {}
+    last_updated = {}
+    
+    for transfer in transfers:
+        from_addr = transfer.get('from', {}).get('address') if transfer.get('from') else None
+        to_addr = transfer.get('to', {}).get('address') if transfer.get('to') else None
+        amount = int(transfer.get('amount', 0))
+        timestamp = int(transfer.get('timestamp', 0))
+        
+        # Handle mint (from null/zero address)
+        if from_addr and from_addr != '0x0000000000000000000000000000000000000000':
+            if from_addr not in balances:
+                balances[from_addr] = 0
+            balances[from_addr] -= amount
+            last_updated[from_addr] = timestamp
+        
+        # Handle receive (to address)
+        if to_addr and to_addr != '0x0000000000000000000000000000000000000000':
+            if to_addr not in balances:
+                balances[to_addr] = 0
+                first_acquired[to_addr] = timestamp
+            balances[to_addr] += amount
+            last_updated[to_addr] = timestamp
+    
+    # Convert to expected format
+    holders = []
+    for address, balance in balances.items():
+        if balance > min_balance:
+            holders.append({
+                'wallet': {'address': address},
+                'currentBalance': str(balance),
+                'lastUpdated': str(last_updated.get(address, 0)),
+                'firstAcquired': str(first_acquired.get(address, 0))
+            })
+    
+    return holders
 
 def _format_duration(seconds: int) -> str:
     days = seconds // 86400
@@ -91,25 +133,69 @@ def _format_duration(seconds: int) -> str:
 
 def get_all_token_holdings(token_address: str) -> List[Dict[str, Any]]:
     """Get all holdings entries for a token (includes exited holders with 0 balance)."""
+    # Use the same logic as get_token_holders but include zero balances
     query = """
-    query GetAllTokenHoldings($tokenAddress: String!) {
-        TokenHolding(
+    query GetTokenTransfers($tokenAddress: String!) {
+        Transfer(
             where: {
                 token: {address: {_eq: $tokenAddress}}
             }
+            order_by: {timestamp: asc}
         ) {
-            wallet { address }
-            currentBalance
-            previousBalance
-            firstAcquired
-            lastUpdated
+            from {
+                address
+            }
+            to {
+                address
+            }
+            amount
+            timestamp
         }
     }
     """
-
+    
     variables = {"tokenAddress": token_address}
     result = query_graphql(query, variables)
-    return result.get("TokenHolding", [])
+    transfers = result.get("Transfer", [])
+    
+    # Calculate all balances (including zero)
+    balances = {}
+    first_acquired = {}
+    last_updated = {}
+    
+    for transfer in transfers:
+        from_addr = transfer.get('from', {}).get('address') if transfer.get('from') else None
+        to_addr = transfer.get('to', {}).get('address') if transfer.get('to') else None
+        amount = int(transfer.get('amount', 0))
+        timestamp = int(transfer.get('timestamp', 0))
+        
+        # Handle mint (from null/zero address)
+        if from_addr and from_addr != '0x0000000000000000000000000000000000000000':
+            if from_addr not in balances:
+                balances[from_addr] = 0
+            balances[from_addr] -= amount
+            last_updated[from_addr] = timestamp
+        
+        # Handle receive (to address)
+        if to_addr and to_addr != '0x0000000000000000000000000000000000000000':
+            if to_addr not in balances:
+                balances[to_addr] = 0
+                first_acquired[to_addr] = timestamp
+            balances[to_addr] += amount
+            last_updated[to_addr] = timestamp
+    
+    # Convert to expected format (include all addresses, even with 0 balance)
+    holdings = []
+    for address, balance in balances.items():
+        holdings.append({
+            'wallet': {'address': address},
+            'currentBalance': str(balance),
+            'previousBalance': '0',  # We don't have this info from transfers
+            'lastUpdated': str(last_updated.get(address, 0)),
+            'firstAcquired': str(first_acquired.get(address, 0))
+        })
+    
+    return holdings
 
 def get_wallet_trades(wallet_addresses: List[str], hours_back: int = 24) -> List[Dict[str, Any]]:
     """Get all trades for specific wallets in the given time period"""
@@ -149,36 +235,79 @@ def get_wallet_trades(wallet_addresses: List[str], hours_back: int = 24) -> List
 
 def get_current_holdings(wallet_addresses: List[str], token_addresses: List[str]) -> List[Dict[str, Any]]:
     """Get current holdings for specific wallets and tokens"""
-    query = """
-    query GetCurrentHoldings($walletAddresses: [String!]!, $tokenAddresses: [String!]!) {
-        TokenHolding(
-            where: {
-                wallet: {address: {_in: $walletAddresses}},
-                token: {address: {_in: $tokenAddresses}},
-                currentBalance: {_gt: "0"}
+    # We need to get transfers for each token and calculate balances
+    all_holdings = []
+    
+    for token_addr in token_addresses:
+        query = """
+        query GetTokenTransfers($tokenAddress: String!) {
+            Transfer(
+                where: {
+                    token: {address: {_eq: $tokenAddress}}
+                }
+                order_by: {timestamp: asc}
+            ) {
+                from {
+                    address
+                }
+                to {
+                    address
+                }
+                amount
+                timestamp
             }
-        ) {
-            wallet {
-                address
-            }
-            token {
+            Token(where: {address: {_eq: $tokenAddress}}) {
                 address
                 symbol
                 name
             }
-            currentBalance
-            lastUpdated
         }
-    }
-    """
+        """
+        
+        result = query_graphql(query, {"tokenAddress": token_addr})
+        transfers = result.get("Transfer", [])
+        tokens = result.get("Token", [])
+        
+        if not tokens:
+            continue
+            
+        token_info = tokens[0]
+        
+        # Calculate balances for this token
+        balances = {}
+        last_updated = {}
+        
+        for transfer in transfers:
+            from_addr = transfer.get('from', {}).get('address') if transfer.get('from') else None
+            to_addr = transfer.get('to', {}).get('address') if transfer.get('to') else None
+            amount = int(transfer.get('amount', 0))
+            timestamp = int(transfer.get('timestamp', 0))
+            
+            # Handle sender
+            if from_addr and from_addr != '0x0000000000000000000000000000000000000000':
+                if from_addr not in balances:
+                    balances[from_addr] = 0
+                balances[from_addr] -= amount
+                last_updated[from_addr] = timestamp
+            
+            # Handle receiver
+            if to_addr and to_addr != '0x0000000000000000000000000000000000000000':
+                if to_addr not in balances:
+                    balances[to_addr] = 0
+                balances[to_addr] += amount
+                last_updated[to_addr] = timestamp
+        
+        # Add holdings for wallets we're interested in
+        for wallet_addr in wallet_addresses:
+            if wallet_addr in balances and balances[wallet_addr] > 0:
+                all_holdings.append({
+                    'wallet': {'address': wallet_addr},
+                    'token': token_info,
+                    'currentBalance': str(balances[wallet_addr]),
+                    'lastUpdated': str(last_updated.get(wallet_addr, 0))
+                })
     
-    variables = {
-        "walletAddresses": wallet_addresses,
-        "tokenAddresses": token_addresses
-    }
-    
-    result = query_graphql(query, variables)
-    return result.get("TokenHolding", [])
+    return all_holdings
 
 def analyze_also_bought(token_address: str) -> Dict[str, Any]:
     """
@@ -311,7 +440,9 @@ def analyze_also_bought(token_address: str) -> Dict[str, Any]:
                     'wmon_volume': 0
                 }
             
-            tokens_bought[token_addr]['buyers'].add(trade['trader']['address'])
+            trader_address = trade['trader']['address']
+            if trader_address:  # Make sure it's not None
+                tokens_bought[token_addr]['buyers'].add(trader_address)
             # Add WMON volume
             wmon_amount = int(trade.get('monAmount', 0))
             tokens_bought[token_addr]['wmon_volume'] += wmon_amount
