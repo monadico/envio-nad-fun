@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx envio:*)"
+      "Bash(npx envio:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
