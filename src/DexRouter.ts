@@ -25,7 +25,7 @@ async function handleTrade(
   const trader = await getOrCreateWallet(event.params.sender, context);
 
   const trade: Trade = {
-    id: event.transaction.hash + "-" + event.logIndex.toString(),
+    id: event.transaction.hash + "-" + event.params.token, // Use txHash + tokenAddress for consistency
     token_id: event.params.token,
     trader_id: trader.id,
     tradeType: tradeType,

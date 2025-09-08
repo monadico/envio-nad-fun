@@ -8,7 +8,7 @@ import {
   Token,
 } from "../generated/src/Types.gen";
 
-import { getOrCreateWallet } from "./utils";
+import { getOrCreateWallet, checkForDuplicateTrade } from "./utils";
 
 // Store pool-to-token mapping (in production, this should be in database)
 const POOL_TO_TOKEN_MAP = new Map<string, string>();
@@ -35,6 +35,12 @@ UniswapV3PoolTemplate.Swap.handler(async ({ event, context }) => {
     // Don't create placeholder tokens - let CurveCreate events handle proper token creation
     // This swap will be processed when the token is properly created
     return; // Token not found
+  }
+
+  // Check for duplicate trade from DEXRouter (prioritize DEXRouter over Uniswap)
+  const hasDuplicateTrade = await checkForDuplicateTrade(event.transaction.hash, tokenAddress, context);
+  if (hasDuplicateTrade) {
+    return; // Skip this Uniswap trade since DEXRouter trade already exists
   }
 
   const sender = await getOrCreateWallet(event.params.sender, context);
@@ -70,7 +76,7 @@ UniswapV3PoolTemplate.Swap.handler(async ({ event, context }) => {
   }
 
   const trade: Trade = {
-    id: event.transaction.hash + "-" + event.logIndex.toString(),
+    id: event.transaction.hash + "-" + tokenAddress, // Use txHash + tokenAddress for consistency
     token_id: nadFunToken.id,
     trader_id: trader.id,
     tradeType: tradeType,

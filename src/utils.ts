@@ -55,3 +55,14 @@ export async function getOrCreateWallet(
   }
   return wallet;
 }
+
+export async function checkForDuplicateTrade(
+  txHash: string,
+  tokenAddress: string,
+  context: any
+): Promise<boolean> {
+  // Check if a DEXRouter trade already exists for this transaction+token
+  const dexRouterTradeId = `${txHash}-${tokenAddress}`;
+  const existingTrade = await context.Trade.get(dexRouterTradeId);
+  return existingTrade !== undefined;
+}
