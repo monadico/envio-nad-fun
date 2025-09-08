@@ -40,43 +40,33 @@ UniswapV3PoolTemplate.Swap.handler(async ({ event, context }) => {
   const sender = await getOrCreateWallet(event.params.sender, context);
   const recipient = await getOrCreateWallet(event.params.recipient, context);
 
-  // Determine trade direction based on amount0 and amount1
-  // amount0/amount1 represent the token amounts in the swap
-  // Positive = token going to recipient, Negative = token coming from recipient
+  // FIXED: amount0 = MON token, amount1 = meme token (always)
+  // Negative values = tokens leaving pool (going to user)
+  // Positive values = tokens entering pool (coming from user)
   
   let tradeType: "BUY" | "SELL";
   let trader: Wallet;
   let tokenAmount: bigint;
   let monAmount: bigint;
 
-  // For nad.fun tokens, we need to determine which is token0 and which is token1
-  // Based on your example: amount1 was negative (-76077893654847100771657)
-  // This suggests the user was receiving the nad.fun token (buying)
-  
   if (event.params.amount1 < 0n) {
-    // User is receiving token1 (nad.fun token), so buying
+    // User is receiving meme tokens (amount1 negative), so buying
     tradeType = "BUY";
-    trader = recipient;
-    tokenAmount = BigInt(event.params.amount1) * -1n; // Make positive
-    monAmount = BigInt(event.params.amount0);
+    trader = sender;  // Sender initiates the trade
+    tokenAmount = BigInt(event.params.amount1) * -1n;  // Meme token amount (make positive)
+    monAmount = BigInt(event.params.amount0);          // MON amount (positive = user paid MON)
   } else if (event.params.amount0 < 0n) {
-    // User is receiving token0 (nad.fun token), so buying  
-    tradeType = "BUY";
-    trader = recipient;
-    tokenAmount = BigInt(event.params.amount0) * -1n; // Make positive
-    monAmount = BigInt(event.params.amount1);
-  } else {
-    // This is likely a sell transaction
+    // User is receiving MON (amount0 negative), so selling meme tokens
     tradeType = "SELL";
+    trader = sender;  // Sender initiates the trade
+    tokenAmount = BigInt(event.params.amount1);        // Meme token amount (positive = user sold tokens)
+    monAmount = BigInt(event.params.amount0) * -1n;    // MON amount (make positive = user received MON)
+  } else {
+    // Edge case - shouldn't happen in normal swaps
+    tradeType = "BUY";
     trader = sender;
-    // Use the positive amount as tokens being sold
-    if (event.params.amount0 > 0n) {
-      tokenAmount = BigInt(event.params.amount0);
-      monAmount = BigInt(event.params.amount1) * -1n; // Make positive
-    } else {
-      tokenAmount = BigInt(event.params.amount1);  
-      monAmount = BigInt(event.params.amount0) * -1n; // Make positive
-    }
+    tokenAmount = BigInt(event.params.amount1);        // Meme token amount
+    monAmount = BigInt(event.params.amount0);          // MON amount
   }
 
   const trade: Trade = {
