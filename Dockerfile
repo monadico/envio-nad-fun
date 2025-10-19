@@ -17,10 +17,10 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 
 # Run codegen to generate necessary files
-RUN pnpm codegen
+RUN pnpm envio codegen
 
 # Expose GraphQL port (Hasura) - Note: Hasura runs on 8082 externally, 8080 internally
 EXPOSE 8082
 
 # Start the indexer in production mode
-CMD ["pnpm", "start"]
+CMD ["pnpm", "envio", "start"]

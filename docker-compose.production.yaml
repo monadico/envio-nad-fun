@@ -60,7 +60,11 @@ services:
       ENVIO_PG_USER: ${ENVIO_PG_USER:-postgres}
       ENVIO_PG_PASSWORD: ${ENVIO_PG_PASSWORD:-testing}
       ENVIO_PG_DATABASE: ${ENVIO_PG_DATABASE:-envio-dev}
+      HASURA_GRAPHQL_ENDPOINT: http://graphql-engine:8080/v1/metadata
       HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_GRAPHQL_ADMIN_SECRET:-testing}
+      HASURA_SERVICE_HOST: graphql-engine
+      HASURA_SERVICE_PORT: 8080
+      TUI_OFF: true
     networks:
       - envio-network
     # Optional: expose metrics port if needed
