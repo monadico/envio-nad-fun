@@ -1,0 +1,76 @@
+services:
+  envio-postgres:
+    image: postgres:17.5
+    restart: always
+    ports:
+      - "${ENVIO_PG_PORT:-5433}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${ENVIO_PG_PASSWORD:-testing}
+      POSTGRES_USER: ${ENVIO_PG_USER:-postgres}
+      POSTGRES_DB: ${ENVIO_PG_DATABASE:-envio-dev}
+    networks:
+      - envio-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ENVIO_PG_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  graphql-engine:
+    image: hasura/graphql-engine:v2.43.0
+    ports:
+      - "${HASURA_EXTERNAL_PORT:-8082}:8080"
+    depends_on:
+      envio-postgres:
+        condition: service_healthy
+    restart: always
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: postgres://${ENVIO_PG_USER:-postgres}:${ENVIO_PG_PASSWORD:-testing}@envio-postgres:5432/${ENVIO_PG_DATABASE:-envio-dev}
+      HASURA_GRAPHQL_ENABLE_CONSOLE: ${HASURA_GRAPHQL_ENABLE_CONSOLE:-true}
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
+      HASURA_GRAPHQL_NO_OF_RETRIES: 10
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_GRAPHQL_ADMIN_SECRET:-testing}
+      HASURA_GRAPHQL_STRINGIFY_NUMERIC_TYPES: "true"
+      PORT: 8080
+      HASURA_GRAPHQL_UNAUTHORIZED_ROLE: public
+    healthcheck:
+      test: timeout 1s bash -c ':> /dev/tcp/127.0.0.1/8080' || exit 1
+      interval: 10s
+      timeout: 2s
+      retries: 20
+      start_period: 10s
+    networks:
+      - envio-network
+
+  envio-indexer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      envio-postgres:
+        condition: service_healthy
+      graphql-engine:
+        condition: service_healthy
+    environment:
+      ENVIO_PG_HOST: envio-postgres
+      ENVIO_PG_PORT: 5432
+      ENVIO_PG_USER: ${ENVIO_PG_USER:-postgres}
+      ENVIO_PG_PASSWORD: ${ENVIO_PG_PASSWORD:-testing}
+      ENVIO_PG_DATABASE: ${ENVIO_PG_DATABASE:-envio-dev}
+      HASURA_GRAPHQL_ADMIN_SECRET: ${HASURA_GRAPHQL_ADMIN_SECRET:-testing}
+    networks:
+      - envio-network
+    # Optional: expose metrics port if needed
+    # ports:
+    #   - "9090:9090"
+
+volumes:
+  db_data:
+    driver: local
+
+networks:
+  envio-network:
+    driver: bridge
