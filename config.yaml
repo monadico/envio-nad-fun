@@ -3,7 +3,7 @@
 name: nadfun-analytics
 networks:
   - id: 10143
-    rpc: https://monad-testnet.hypersync.xyz
+    rpc: https://testnet-rpc.monad.xyz
     start_block: 44152730
     contracts:
       - name: BondingCurve
