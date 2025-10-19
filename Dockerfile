@@ -1,26 +1,31 @@
-# Dockerfile for Envio Indexer
-FROM node:18-alpine
+FROM node:24.3.0-slim
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# --no-install-recommends keeps the image smaller by avoiding extra dependencies.
+# rm -rf /var/lib/apt/lists/* cleans up cached package lists to reduce image size.
+# psql is needed for dumping and restoring the initial effects cache.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends postgresql-client && \
+    rm -rf /var/lib/apt/lists/*
 
-# Set working directory
-WORKDIR /app
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN npm install -g pnpm@9.7.1
 
-# Copy package files
-COPY package.json pnpm-lock.yaml ./
+WORKDIR /envio-indexer
 
-# Install dependencies
+COPY ./package.json ./package.json
+COPY ./pnpm-lock.yaml ./pnpm-lock.yaml
+
 RUN pnpm install --frozen-lockfile
 
-# Copy project files
-COPY . .
+COPY ./config.yaml ./config.yaml
+COPY ./schema.graphql ./schema.graphql
 
-# Run codegen to generate necessary files
+# Remove the line if you inlined all event ABIs in the config.yaml
+COPY ./ABIs ./ABIs
+
 RUN pnpm envio codegen
 
-# Expose GraphQL port (Hasura) - Note: Hasura runs on 8082 externally, 8080 internally
-EXPOSE 8082
+COPY ./ ./
 
-# Start the indexer in production mode
-CMD ["pnpm", "envio", "start"]
+CMD pnpm envio start
